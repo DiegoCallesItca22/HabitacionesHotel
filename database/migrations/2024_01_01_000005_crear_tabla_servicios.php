@@ -16,6 +16,8 @@ return new class extends Migration
             $table->string('nombre', 100);
             $table->decimal('precio', 10, 2);
             $table->boolean('activo')->default(true);
+            $table->timestamp('creado_en')->nullable();
+            $table->timestamp('actualizado_en')->nullable();
             
             $table->index('nombre');
             $table->index('activo');
