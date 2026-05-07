@@ -7,7 +7,7 @@ use App\Http\Controllers\Api\ReservaController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
-// Rutas de Usuarios - Estilo quality_control
+// Rutas de Usuarios
 Route::get('/usuario/obtener/todos', function () {
     $controller = new UsuarioController();
     $data = $controller->obtenerTodos();
@@ -24,7 +24,7 @@ Route::delete('/usuario/eliminar/{id}', [UsuarioController::class, 'eliminarPorI
 Route::put('/usuario/actualizar', [UsuarioController::class, 'actualizarPorId']);
 Route::post('/usuario/crear', [UsuarioController::class, 'crear']);
 
-// Rutas de Habitaciones - Estilo quality_control
+// Rutas de Habitaciones
 Route::get('/habitacion/obtener/todos', function () {
     $controller = new HabitacionController();
     $data = $controller->obtenerTodos();
@@ -42,7 +42,7 @@ Route::put('/habitacion/actualizar', [HabitacionController::class, 'actualizarPo
 Route::post('/habitacion/crear', [HabitacionController::class, 'crear']);
 Route::get('/habitacion/disponibles', [HabitacionController::class, 'obtenerDisponibles']);
 
-// Rutas de Servicios - Estilo quality_control
+// Rutas de Servicios
 Route::get('/servicio/obtener/todos', function () {
     $controller = new ServicioController();
     $data = $controller->obtenerTodos();
@@ -60,7 +60,7 @@ Route::put('/servicio/actualizar', [ServicioController::class, 'actualizarPorId'
 Route::post('/servicio/crear', [ServicioController::class, 'crear']);
 Route::get('/servicio/activos', [ServicioController::class, 'obtenerActivos']);
 
-// Rutas de Reservas - Estilo quality_control
+// Rutas de Reservas
 Route::get('/reserva/obtener/todos', function () {
     $controller = new ReservaController();
     $data = $controller->obtenerTodos();

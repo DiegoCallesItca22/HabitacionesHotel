@@ -51,7 +51,7 @@ class ServicioController extends Controller
                 return response()->json($message, 422);
             }
             
-            // DELETE FROM servicios WHERE id = ?
+            // Eliminar servicio
             $data->delete();
             $message = ["message" => "Dato eliminado", "status" => true];
             return response()->json($message);
@@ -63,7 +63,7 @@ class ServicioController extends Controller
     
     function actualizarPorId(Request $request) {
         try {
-            // capturamos el id enviado desde el cliente
+            // Obtener ID del servicio a actualizar
             $id = $request->id;
 
             $data = Servicio::find($id);
@@ -76,7 +76,7 @@ class ServicioController extends Controller
             $data->precio = $request->precio ?? $data->precio;
             $data->activo = $request->activo ?? $data->activo;
 
-            // UPDATE servicios SET nombre = ?, precio = ?... WHERE id = ?
+            // Actualizar datos del servicio
             $isOK = $data->save();
 
             $message = [];
@@ -96,13 +96,13 @@ class ServicioController extends Controller
 
     function crear(Request $request) {
         try {
-            // capturamos los datos enviados desde el cliente
+            // Crear nuevo servicio
             $data = new Servicio();
             $data->nombre = $request->nombre;
             $data->precio = $request->precio;
             $data->activo = $request->activo ?? true;
 
-            // INSERT INTO servicios (nombre, precio, activo) VALUES (?, ?, ?);
+            // Guardar nuevo servicio
             $isOK = $data->save();
 
             $message = [];

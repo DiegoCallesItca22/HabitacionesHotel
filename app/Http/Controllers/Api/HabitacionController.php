@@ -59,7 +59,7 @@ class HabitacionController extends Controller
                 Storage::disk('public')->delete($data->imagen);
             }
             
-            // DELETE FROM habitaciones WHERE id = ?
+            // Eliminar habitación
             $data->delete();
             $message = ["message" => "Dato eliminado", "status" => true];
             return response()->json($message);
@@ -71,7 +71,7 @@ class HabitacionController extends Controller
     
     function actualizarPorId(Request $request) {
         try {
-            // capturamos el id enviado desde el cliente
+            // Obtener ID de la habitación a actualizar
             $id = $request->id;
 
             $data = Habitacion::find($id);
@@ -99,7 +99,7 @@ class HabitacionController extends Controller
                 $data->imagen = $ruta;
             }
 
-            // UPDATE habitaciones SET actualizado_en = now(), numero = ?... WHERE id = ?
+            // Actualizar datos de la habitación
             $isOK = $data->save();
 
             $message = [];
@@ -119,23 +119,27 @@ class HabitacionController extends Controller
 
     function crear(Request $request) {
         try {
-            // capturamos los datos enviados desde el cliente
+            // Crear nueva habitación
             $data = new Habitacion();
-            $data->numero = $request->numero;
-            $data->tipo = $request->tipo;
-            $data->precio_por_noche = $request->precio_por_noche;
-            $data->estado = $request->estado ?? 'disponible';
-            $data->activo = $request->activo ?? true;
+            $data->numero = $request->input('numero');
+            $data->tipo = $request->input('tipo');
+            $data->precio_por_noche = $request->input('precio_por_noche');
+            $data->estado = $request->input('estado') ?? 'disponible';
+            $data->activo = $request->input('activo') ?? true;
 
             // Manejar subida de imagen
-            if ($request->hasFile('imagen')) {
-                $imagen = $request->file('imagen');
-                $nombreImagen = time() . '_' . $imagen->getClientOriginalName();
-                $ruta = $imagen->storeAs('habitaciones', $nombreImagen, 'public');
-                $data->imagen = $ruta;
+            try {
+                if ($request->hasFile('imagen')) {
+                    $imagen = $request->file('imagen');
+                    $nombreImagen = time() . '_' . $imagen->getClientOriginalName();
+                    $ruta = $imagen->storeAs('habitaciones', $nombreImagen, 'public');
+                    $data->imagen = $ruta;
+                }
+            } catch (\Exception $e) {
+                // Si hay error con la imagen, continuar sin ella
             }
 
-            // INSERT INTO habitaciones (creado_en, actualizado_en...) VALUES (?, ?...);
+            // Guardar nueva habitación
             $isOK = $data->save();
 
             $message = [];

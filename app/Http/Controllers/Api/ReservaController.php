@@ -68,7 +68,7 @@ class ReservaController extends Controller
                     $data->factura()->delete();
                 }
 
-                // DELETE FROM reservas WHERE id = ?
+                // Eliminar reserva
                 $data->delete();
                 $message = ["message" => "Dato eliminado", "status" => true];
                 return response()->json($message);
@@ -81,7 +81,7 @@ class ReservaController extends Controller
     
     function actualizarPorId(Request $request) {
         try {
-            // capturamos el id enviado desde el cliente
+            // Obtener ID de la reserva a actualizar
             $id = $request->id;
 
             $data = Reserva::find($id);
@@ -103,7 +103,7 @@ class ReservaController extends Controller
             $data->estado = $request->estado ?? $data->estado;
             $data->activo = $request->activo ?? $data->activo;
 
-            // UPDATE reservas SET usuario_id = ?, fecha_entrada = ?... WHERE id = ?
+            // Actualizar datos de la reserva
             $isOK = $data->save();
 
             $message = [];
@@ -138,7 +138,7 @@ class ReservaController extends Controller
                 $data->estado = $request->estado ?? 'pendiente';
                 $data->activo = $request->activo ?? true;
 
-                // INSERT INTO reservas (usuario_id, fecha_entrada...) VALUES (?, ?, ?...);
+                // Guardar reserva
                 $isOK = $data->save();
 
                 if (!$isOK) {

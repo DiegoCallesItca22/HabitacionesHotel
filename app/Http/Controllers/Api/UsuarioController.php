@@ -10,15 +10,13 @@ use Illuminate\Support\Facades\Hash;
 class UsuarioController extends Controller
 {
     /**
-     * Devuelve todos los registros
-     * de la tabla usuarios
+     * Devuelve todos los registros de la tabla usuarios
      *
      * @return response - JSON - los datos de la tabla
      */
     function obtenerTodos() {
         try {
-            // all() Equivale a:
-            // SELECT * FROM usuarios
+            // Obtiene todos los usuarios
             $list = Usuario::all();
             return response()->json($list);
         } catch (\Exception $th) {
@@ -29,7 +27,7 @@ class UsuarioController extends Controller
 
     function obtenerPorId(int $id) {
         try {
-            // SELECT * FROM usuarios WHERE id = ?
+            // Busca usuario por ID
             $data = Usuario::find($id);
             return response()->json($data);
         } catch (\Exception $th) {
@@ -52,7 +50,7 @@ class UsuarioController extends Controller
                 return response()->json($message, 422);
             }
             
-            // DELETE FROM usuarios WHERE id = ?
+            // Eliminar usuario
             $data->delete();
             $message = ["message" => "Dato eliminado", "status" => true];
             return response()->json($message);
@@ -64,7 +62,7 @@ class UsuarioController extends Controller
     
     function actualizarPorId(Request $request) {
         try {
-            // capturamos el id enviado desde el cliente
+            // Obtener ID del usuario a actualizar
             $id = $request->id;
 
             $data = Usuario::find($id);
@@ -82,7 +80,7 @@ class UsuarioController extends Controller
                 $data->password = Hash::make($request->password);
             }
 
-            // UPDATE usuarios SET actualizado_en = now(), nombre = ?... WHERE id = ?
+            // Actualizar datos del usuario
             $isOK = $data->save();
 
             $message = [];
@@ -102,7 +100,7 @@ class UsuarioController extends Controller
 
     function crear(Request $request) {
         try {
-            // capturamos los datos enviados desde el cliente
+            // Crear nuevo usuario
             $data = new Usuario();
             $data->nombre = $request->nombre;
             $data->correo = $request->correo;
@@ -110,7 +108,7 @@ class UsuarioController extends Controller
             $data->rol = $request->rol;
             $data->activo = $request->activo ?? true;
 
-            // INSERT INTO usuarios (creado_en, actualizado_en...) VALUES (?, ?...);
+            // Guardar nuevo usuario
             $isOK = $data->save();
 
             $message = [];
