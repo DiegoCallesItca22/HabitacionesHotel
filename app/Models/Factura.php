@@ -4,13 +4,14 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Factura extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory;
 
     protected $table = 'facturas';
+
+    public $timestamps = false;
 
     protected $fillable = [
         'reserva_id',
@@ -28,7 +29,6 @@ class Factura extends Model
         'total' => 'decimal:2',
         'fecha_emision' => 'datetime',
         'activo' => 'boolean',
-        'deleted_at' => 'datetime',
     ];
 
     public function reserva()
@@ -48,17 +48,20 @@ class Factura extends Model
 
     public function getTotalPagadoAttribute()
     {
-        return $this->pagos()->where('estado_pago', 'completado')->sum('monto');
+        return (float) $this->pagos()
+            ->where('estado_pago', 'completado')
+            ->where('activo', true)
+            ->sum('monto');
     }
 
     public function getSaldoPendienteAttribute()
     {
-        return $this->total - $this->total_pagado;
+        return max(0, (float) $this->total - (float) $this->total_pagado);
     }
 
     public function estaPagada()
     {
-        return $this->total_pagado >= $this->total;
+        return (float) $this->total_pagado >= (float) $this->total;
     }
 
     public function generarNumeroFactura()

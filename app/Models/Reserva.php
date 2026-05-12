@@ -47,15 +47,13 @@ class Reserva extends Model
     public function habitaciones()
     {
         return $this->belongsToMany(Habitacion::class, 'detalle_reservas', 'reserva_id', 'habitacion_id')
-                    ->withPivot(['noches', 'precio_noche', 'subtotal', 'activo'])
-                    ->withTimestamps();
+                    ->withPivot(['noches', 'precio_noche', 'subtotal', 'activo']);
     }
 
     public function servicios()
     {
         return $this->belongsToMany(Servicio::class, 'reserva_servicio', 'reserva_id', 'servicio_id')
-                    ->withPivot(['cantidad', 'precio_unitario', 'subtotal', 'activo'])
-                    ->withTimestamps();
+                    ->withPivot(['cantidad', 'precio_unitario', 'subtotal', 'activo']);
     }
 
     public function factura()

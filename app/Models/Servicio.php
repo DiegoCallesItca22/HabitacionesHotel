@@ -23,6 +23,8 @@ class Servicio extends Model
     protected $casts = [
         'precio' => 'float',
         'activo' => 'boolean',
+        'creado_en' => 'datetime',
+        'actualizado_en' => 'datetime',
     ];
 
     public function reservaServicios()
@@ -33,8 +35,7 @@ class Servicio extends Model
     public function reservas()
     {
         return $this->belongsToMany(Reserva::class, 'reserva_servicio', 'servicio_id', 'reserva_id')
-                    ->withPivot(['cantidad', 'precio_unitario', 'subtotal', 'activo'])
-                    ->withTimestamps();
+                    ->withPivot(['cantidad', 'precio_unitario', 'subtotal', 'activo']);
     }
 
     public function scopeActivos($query)
