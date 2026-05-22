@@ -37,10 +37,14 @@ class MetricasController extends Controller
             'Cancelada'  => $reservasCanceladas,
         ];
 
+        $formatoMes = DB::connection()->getDriverName() === 'sqlite'
+            ? "strftime('%Y-%m', fecha_emision)"
+            : "DATE_FORMAT(fecha_emision, '%Y-%m')";
+
         $ingresosPorMes = Factura::where('activo', true)
             ->where('fecha_emision', '>=', now()->subMonths(6))
             ->select(
-                DB::raw("strftime('%Y-%m', fecha_emision) as mes"),
+                DB::raw("$formatoMes as mes"),
                 DB::raw('SUM(total) as total')
             )
             ->groupBy('mes')
