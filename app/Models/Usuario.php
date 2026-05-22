@@ -39,13 +39,4 @@ class Usuario extends Authenticatable
         return $this->hasMany(Reserva::class, 'usuario_id');
     }
 
-    public function getAuthIdentifierName()
-    {
-        return 'correo';
-    }
-
-    public function getAuthPassword()
-    {
-        return $this->password;
-    }
 }

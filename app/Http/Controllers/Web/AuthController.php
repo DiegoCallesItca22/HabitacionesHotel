@@ -13,6 +13,7 @@ class AuthController extends Controller
         if (Auth::check()) {
             return redirect()->route('home.home');
         }
+
         return view('auth.login');
     }
 
@@ -26,15 +27,17 @@ class AuthController extends Controller
         $credentials = [
             'correo'   => $request->correo,
             'password' => $request->password,
+            'activo'   => true,
         ];
 
         if (Auth::attempt($credentials)) {
             $request->session()->regenerate();
-            return redirect()->route('home.home');
+
+            return redirect()->intended(route('home.home'));
         }
 
         return back()->withErrors([
-            'correo' => 'Correo o contraseña incorrectos.',
+            'correo' => 'Correo o contraseña incorrectos, o usuario inactivo.',
         ])->withInput();
     }
 
@@ -43,6 +46,7 @@ class AuthController extends Controller
         Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
+
         return redirect()->route('login');
     }
 }
