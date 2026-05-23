@@ -10,9 +10,9 @@ Sistema para la gestion de un hotel
 
 # Tecnologías de desarrollo
 
-- Lenguaje: PHP
-- Framework: Laravel, Tailwind
-- Gestor de base de datos: MySQL Workbench
+- **Lenguaje**: PHP
+- **Framework**: Laravel, Tailwind
+- **Gestor de base de datos**: MySQL Workbench
 
 # Metodología ágil seleccionada para el desarrollo del proyecto
 
