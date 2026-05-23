@@ -28,7 +28,10 @@ Encargado de definir los requerimientos del sistema, priorizar funcionalidades y
 
 Responsable de coordinar al equipo, dar seguimiento al cumplimiento de los sprints y asegurar el correcto uso de la metodología ágil durante el desarrollo.
 
-## Desarrolladores (3): Pedro Alexander Villalobos Guardado, Salvador Eduardo Crespín Alfaro y Nelson Josué Marroquín Flores
+## Desarrolladores (3): 
+- Pedro Alexander Villalobos Guardado
+- Salvador Eduardo Crespín Alfaro
+- Nelson Josué Marroquín Flores
 
 Encargados de la implementación del sistema, desarrollo de funcionalidades, creación de base de datos, interfaces, lógica del sistema, pruebas y corrección de errores.
 
@@ -36,7 +39,7 @@ Encargados de la implementación del sistema, desarrollo de funcionalidades, cre
 
 ## GitHub Projects
 
-Esta herramienta permitió:
+Esta herramienta nos permitió:
 
 - Gestionar tareas mediante Issues.
 - Asignar responsables.
