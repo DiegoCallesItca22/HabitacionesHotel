@@ -18,26 +18,21 @@ class PagoController extends Controller
 
     public function create()
     {
-        $facturas = Factura::where('activo', true)->orderBy('id', 'desc')->get();
+        $facturas = Factura::orderBy('id', 'desc')->get();
         return view('pagos.create', compact('facturas'));
     }
 
     public function store(Request $request)
     {
+        $validatedData = $request->validate([
+            'factura_id' => 'required|exists:facturas,id',
+            'monto' => 'required|numeric|min:0.01',
+            'metodo_pago' => 'required|in:efectivo,tarjeta_credito,tarjeta_debito,transferencia',
+            'estado_pago' => 'required|in:pendiente,completado,fallido,reembolsado',
+        ]);
+
         try {
-            $validatedData = $request->validate([
-                'factura_id' => 'required|exists:facturas,id',
-                'monto' => 'required|numeric|min:0.01',
-                'metodo_pago' => 'required|in:efectivo,tarjeta_credito,tarjeta_debito,transferencia',
-                'estado_pago' => 'required|in:pendiente,completado,fallido,reembolsado',
-                'activo' => 'nullable|boolean',
-            ]);
-
             $factura = Factura::findOrFail($validatedData['factura_id']);
-
-            if (!$factura->activo) {
-                return redirect()->back()->withInput()->with('error', 'La factura no esta activa.');
-            }
 
             if ($validatedData['monto'] > $factura->saldo_pendiente) {
                 return redirect()->back()->withInput()->with('error', 'El monto excede el saldo pendiente.');
@@ -48,14 +43,13 @@ class PagoController extends Controller
             $data->monto = $validatedData['monto'];
             $data->metodo_pago = $this->normalizarMetodoPago($validatedData['metodo_pago']);
             $data->estado_pago = $validatedData['estado_pago'];
-            $data->activo = $request->boolean('activo', true);
             $data->creado_en = now();
 
             return $data->save()
                 ? redirect()->route('pagos.index')->with('success', 'Pago registrado exitosamente.')
                 : redirect()->back()->withInput()->with('error', 'Error al registrar el pago.');
         } catch (Exception $ex) {
-            return redirect()->back()->withInput()->with('error', 'Error grave al registrar el pago.');
+            return redirect()->back()->withInput()->with('error', 'Error al registrar el pago: ' . $ex->getMessage());
         }
     }
 
@@ -63,7 +57,7 @@ class PagoController extends Controller
     {
         try {
             $pago = Pago::find($id);
-            $facturas = Factura::where('activo', true)->orderBy('id', 'desc')->get();
+            $facturas = Factura::orderBy('id', 'desc')->get();
 
             if ($pago == null) {
                 return redirect()->route('pagos.index')->with('error', 'Registro no encontrado.');
@@ -71,7 +65,7 @@ class PagoController extends Controller
 
             return view('pagos.edit', compact('pago', 'facturas'));
         } catch (Exception $ex) {
-            return redirect()->back()->with('error', 'Error grave al buscar el registro.');
+            return redirect()->back()->with('error', 'Error al buscar el registro.');
         }
     }
 
@@ -88,7 +82,6 @@ class PagoController extends Controller
                 'monto' => 'required|numeric|min:0.01',
                 'metodo_pago' => 'required|in:efectivo,tarjeta_credito,tarjeta_debito,transferencia',
                 'estado_pago' => 'required|in:pendiente,completado,fallido,reembolsado',
-                'activo' => 'nullable|boolean',
             ]);
 
             $saldoDisponible = $pago->factura->saldo_pendiente + ($pago->estado_pago === 'completado' ? (float) $pago->monto : 0);
@@ -100,13 +93,12 @@ class PagoController extends Controller
             $pago->monto = $validatedData['monto'];
             $pago->metodo_pago = $this->normalizarMetodoPago($validatedData['metodo_pago']);
             $pago->estado_pago = $validatedData['estado_pago'];
-            $pago->activo = $request->boolean('activo');
 
             return $pago->save()
                 ? redirect()->route('pagos.index')->with('success', 'Registro actualizado exitosamente.')
                 : redirect()->back()->withInput()->with('error', 'Error al actualizar el registro.');
         } catch (Exception $ex) {
-            return redirect()->back()->withInput()->with('error', 'Error grave al actualizar el registro.');
+            return redirect()->back()->withInput()->with('error', 'Error al actualizar el registro: ' . $ex->getMessage());
         }
     }
 
@@ -127,7 +119,7 @@ class PagoController extends Controller
                 ? redirect()->route('pagos.index')->with('success', 'Registro eliminado exitosamente.')
                 : redirect()->back()->with('error', 'Error al eliminar el registro.');
         } catch (Exception $ex) {
-            return redirect()->back()->with('error', 'Error grave al eliminar el registro.');
+            return redirect()->back()->with('error', 'Error al eliminar el registro.');
         }
     }
 
@@ -160,7 +152,7 @@ class PagoController extends Controller
 
             return redirect()->route('pagos.index')->with('success', $message);
         } catch (Exception $ex) {
-            return redirect()->back()->with('error', 'Error grave al procesar el pago.');
+            return redirect()->back()->with('error', 'Error al procesar el pago.');
         }
     }
 

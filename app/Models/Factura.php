@@ -20,7 +20,6 @@ class Factura extends Model
         'impuestos',
         'total',
         'fecha_emision',
-        'activo'
     ];
 
     protected $casts = [
@@ -28,7 +27,6 @@ class Factura extends Model
         'impuestos' => 'decimal:2',
         'total' => 'decimal:2',
         'fecha_emision' => 'datetime',
-        'activo' => 'boolean',
     ];
 
     public function reserva()
@@ -43,14 +41,13 @@ class Factura extends Model
 
     public function scopeActivas($query)
     {
-        return $query->where('activo', true);
+        return $query;
     }
 
     public function getTotalPagadoAttribute()
     {
         return (float) $this->pagos()
             ->where('estado_pago', 'completado')
-            ->where('activo', true)
             ->sum('monto');
     }
 

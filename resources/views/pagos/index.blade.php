@@ -6,7 +6,7 @@
 <h1>Pagos</h1>
 <a href="{{ route('pagos.create') }}">Crear pago</a>
 <table border="1" cellpadding="6" cellspacing="0">
-    <thead><tr><th>ID</th><th>Factura</th><th>Monto</th><th>Metodo</th><th>Estado</th><th>Activo</th><th>Opciones</th></tr></thead>
+    <thead><tr><th>ID</th><th>Factura</th><th>Monto</th><th>Metodo</th><th>Estado</th><th>Opciones</th></tr></thead>
     <tbody>
         @forelse($pagos as $pago)
             <tr>
@@ -15,7 +15,6 @@
                 <td>{{ number_format((float) $pago->monto, 2) }}</td>
                 <td>{{ $pago->metodo_pago }}</td>
                 <td>{{ $pago->estado_pago }}</td>
-                <td>{{ $pago->activo ? 'Si' : 'No' }}</td>
                 <td>
                     <a href="{{ route('pagos.edit', $pago->id) }}">Editar</a>
                     <form action="{{ route('pagos.procesar', $pago->id) }}" method="POST" style="display:inline;">@csrf<button type="submit">Procesar</button></form>
@@ -29,7 +28,7 @@
                 </td>
             </tr>
         @empty
-            <tr><td colspan="7">No hay registros.</td></tr>
+            <tr><td colspan="6">No hay registros.</td></tr>
         @endforelse
     </tbody>
 </table>

@@ -27,8 +27,8 @@ class MetricasController extends Controller
 
         $totalClientes        = Usuario::where('rol', 'cliente')->where('activo', true)->count();
 
-        $ingresosTotales    = Factura::where('activo', true)->sum('total');
-        $ingresosRecaudados = Pago::where('estado_pago', 'completado')->where('activo', true)->sum('monto');
+        $ingresosTotales    = Factura::sum('total');
+        $ingresosRecaudados = Pago::where('estado_pago', 'completado')->sum('monto');
         $saldoPendiente     = $ingresosTotales - $ingresosRecaudados;
 
         $reservasPorEstado = [
@@ -41,7 +41,7 @@ class MetricasController extends Controller
             ? "strftime('%Y-%m', fecha_emision)"
             : "DATE_FORMAT(fecha_emision, '%Y-%m')";
 
-        $ingresosPorMes = Factura::where('activo', true)
+        $ingresosPorMes = Factura::query()
             ->where('fecha_emision', '>=', now()->subMonths(6))
             ->select(
                 DB::raw("$formatoMes as mes"),

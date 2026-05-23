@@ -13,21 +13,26 @@ use Carbon\Carbon;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class ReservaController extends Controller
 {
     public function index()
     {
         $reservas = Reserva::with(['usuario', 'detalleReservas.habitacion', 'servicios', 'factura'])
-            ->orderBy('creado_en', 'desc')->get();
+            ->where('activo', true)
+            ->orderBy('creado_en', 'desc')
+            ->get();
+
         return view('reservas.index', compact('reservas'));
     }
 
     public function create()
     {
-        $usuarios    = Usuario::where('rol', 'cliente')->where('activo', true)->orderBy('nombre')->get();
+        $usuarios     = Usuario::where('rol', 'cliente')->where('activo', true)->orderBy('nombre')->get();
         $habitaciones = Habitacion::where('activo', true)->orderBy('numero')->get();
-        $servicios   = Servicio::where('activo', true)->orderBy('nombre')->get();
+        $servicios    = Servicio::where('activo', true)->orderBy('nombre')->get();
+
         return view('reservas.create', compact('usuarios', 'habitaciones', 'servicios'));
     }
 
@@ -38,15 +43,26 @@ class ReservaController extends Controller
             'fecha_entrada' => 'required|date',
             'fecha_salida'  => 'required|date|after:fecha_entrada',
             'habitacion_id' => 'required|exists:habitaciones,id',
-            'servicio_id'   => 'nullable|exists:servicios,id',
-            'cantidad'      => 'nullable|integer|min:0',
+            'servicios'     => 'nullable|array',
+            'servicios.*.servicio_id' => 'required|exists:servicios,id',
+            'servicios.*.cantidad'    => 'required|integer|min:1',
+        ], [
+            'fecha_salida.after' => 'La fecha de salida debe ser un dia posterior a la de entrada (reserva por noches).',
         ]);
 
+        $noches = $this->calcularNoches($validatedData['fecha_entrada'], $validatedData['fecha_salida']);
+
+        if ($noches < 1) {
+            throw ValidationException::withMessages([
+                'fecha_salida' => 'La reserva debe incluir al menos 1 noche.',
+            ]);
+        }
+
         try {
-            return DB::transaction(function () use ($validatedData) {
+            return DB::transaction(function () use ($validatedData, $noches) {
                 $habitacion = Habitacion::findOrFail($validatedData['habitacion_id']);
 
-                if (!$habitacion->estaDisponible()) {
+                if (!$habitacion->activo || !$habitacion->estaDisponible()) {
                     return redirect()->back()->withInput()->with('error', 'La habitacion no esta disponible.');
                 }
 
@@ -54,39 +70,24 @@ class ReservaController extends Controller
                     return redirect()->back()->withInput()->with('error', 'La habitacion esta ocupada en las fechas solicitadas.');
                 }
 
-                $reserva = new Reserva();
-                $reserva->usuario_id    = $validatedData['usuario_id'];
-                $reserva->fecha_entrada = $validatedData['fecha_entrada'];
-                $reserva->fecha_salida  = $validatedData['fecha_salida'];
-                $reserva->estado        = 'pendiente';
-                $reserva->activo        = true;
-                $reserva->save();
-
-                $noches = Carbon::parse($validatedData['fecha_entrada'])->diffInDays(Carbon::parse($validatedData['fecha_salida']));
+                $reserva = Reserva::create([
+                    'usuario_id'    => $validatedData['usuario_id'],
+                    'fecha_entrada' => $validatedData['fecha_entrada'],
+                    'fecha_salida'  => $validatedData['fecha_salida'],
+                    'estado'        => 'pendiente',
+                    'activo'        => true,
+                ]);
 
                 DetalleReserva::create([
                     'reserva_id'    => $reserva->id,
                     'habitacion_id' => $habitacion->id,
                     'noches'        => $noches,
                     'precio_noche'  => $habitacion->precio_por_noche,
-                    'subtotal'      => $noches * $habitacion->precio_por_noche,
+                    'subtotal'      => $noches * (float) $habitacion->precio_por_noche,
                     'activo'        => true,
                 ]);
 
-                if (!empty($validatedData['servicio_id'])) {
-                    $servicio = Servicio::findOrFail($validatedData['servicio_id']);
-                    $cantidad = $validatedData['cantidad'] ?? 1;
-                    if ($cantidad > 0) {
-                        ReservaServicio::create([
-                            'reserva_id'      => $reserva->id,
-                            'servicio_id'     => $servicio->id,
-                            'cantidad'        => $cantidad,
-                            'precio_unitario' => $servicio->precio,
-                            'subtotal'        => $cantidad * $servicio->precio,
-                            'activo'          => true,
-                        ]);
-                    }
-                }
+                $this->guardarServicios($reserva, $validatedData['servicios'] ?? []);
 
                 return redirect()->route('reservas.index')->with('success', 'Reserva creada exitosamente.');
             });
@@ -98,63 +99,132 @@ class ReservaController extends Controller
     public function edit(string $id)
     {
         try {
-            $reserva  = Reserva::find($id);
-            $usuarios = Usuario::where('rol', 'cliente')->where('activo', true)->orderBy('nombre')->get();
+            $reserva = Reserva::with(['detalleReservas', 'servicios'])->find($id);
+
             if ($reserva == null) {
                 return redirect()->route('reservas.index')->with('error', 'Registro no encontrado.');
             }
-            return view('reservas.edit', compact('reserva', 'usuarios'));
+
+            $usuarios     = Usuario::where('rol', 'cliente')->where('activo', true)->orderBy('nombre')->get();
+            $habitaciones = Habitacion::where('activo', true)->orderBy('numero')->get();
+            $servicios    = Servicio::where('activo', true)->orderBy('nombre')->get();
+            $detalle      = $reserva->detalleReservas->first();
+            $serviciosReserva = $reserva->servicios->map(fn ($s) => [
+                'servicio_id' => $s->id,
+                'nombre'      => $s->nombre,
+                'precio'      => (float) $s->precio,
+                'cantidad'    => (int) $s->pivot->cantidad,
+                'subtotal'    => (float) $s->pivot->subtotal,
+            ])->values();
+
+            return view('reservas.edit', compact('reserva', 'usuarios', 'habitaciones', 'servicios', 'detalle', 'serviciosReserva'));
         } catch (Exception $ex) {
-            return redirect()->back()->with('error', 'Error grave al buscar el registro.');
+            return redirect()->back()->with('error', 'Error al buscar el registro.');
         }
     }
 
     public function update(Request $request, string $id)
     {
-        try {
-            $reserva = Reserva::find($id);
-            if ($reserva == null) {
-                return redirect()->route('reservas.index')->with('error', 'Registro no encontrado.');
-            }
-            $validatedData = $request->validate([
-                'usuario_id'    => 'required|exists:usuarios,id',
-                'fecha_entrada' => 'required|date',
-                'fecha_salida'  => 'required|date|after:fecha_entrada',
-                'estado'        => 'required|in:pendiente,confirmada,cancelada,completada',
-                'activo'        => 'nullable|boolean',
+        $reserva = Reserva::with(['detalleReservas', 'servicios'])->find($id);
+
+        if ($reserva == null) {
+            return redirect()->route('reservas.index')->with('error', 'Registro no encontrado.');
+        }
+
+        $validatedData = $request->validate([
+            'usuario_id'    => 'required|exists:usuarios,id',
+            'fecha_entrada' => 'required|date',
+            'fecha_salida'  => 'required|date|after:fecha_entrada',
+            'habitacion_id' => 'required|exists:habitaciones,id',
+            'estado'        => 'required|in:pendiente,confirmada,cancelada,completada',
+            'servicios'     => 'nullable|array',
+            'servicios.*.servicio_id' => 'required|exists:servicios,id',
+            'servicios.*.cantidad'    => 'required|integer|min:1',
+        ], [
+            'fecha_salida.after' => 'La fecha de salida debe ser un dia posterior a la de entrada (reserva por noches).',
+        ]);
+
+        $noches = $this->calcularNoches($validatedData['fecha_entrada'], $validatedData['fecha_salida']);
+
+        if ($noches < 1) {
+            throw ValidationException::withMessages([
+                'fecha_salida' => 'La reserva debe incluir al menos 1 noche.',
             ]);
-            $reserva->usuario_id    = $validatedData['usuario_id'];
-            $reserva->fecha_entrada = $validatedData['fecha_entrada'];
-            $reserva->fecha_salida  = $validatedData['fecha_salida'];
-            $reserva->estado        = $validatedData['estado'];
-            $reserva->activo        = $request->boolean('activo');
-            return $reserva->save()
-                ? redirect()->route('reservas.index')->with('success', 'Registro actualizado exitosamente.')
-                : redirect()->back()->withInput()->with('error', 'Error al actualizar el registro.');
+        }
+
+        if (in_array($reserva->estado, ['confirmada', 'completada']) &&
+            ($reserva->fecha_entrada->format('Y-m-d') !== $validatedData['fecha_entrada'] ||
+             $reserva->fecha_salida->format('Y-m-d') !== $validatedData['fecha_salida'])) {
+            return redirect()->back()->withInput()->with('error', 'No se pueden modificar las fechas de una reserva confirmada o completada.');
+        }
+
+        try {
+            return DB::transaction(function () use ($reserva, $validatedData, $noches) {
+                $habitacion = Habitacion::findOrFail($validatedData['habitacion_id']);
+                $detalle    = $reserva->detalleReservas->first();
+
+                if ($detalle && (int) $detalle->habitacion_id !== (int) $habitacion->id) {
+                    if ($this->habitacionOcupada($habitacion->id, $validatedData['fecha_entrada'], $validatedData['fecha_salida'], $reserva->id)) {
+                        return redirect()->back()->withInput()->with('error', 'La habitacion esta ocupada en las fechas solicitadas.');
+                    }
+                } elseif (!$detalle && $this->habitacionOcupada($habitacion->id, $validatedData['fecha_entrada'], $validatedData['fecha_salida'], $reserva->id)) {
+                    return redirect()->back()->withInput()->with('error', 'La habitacion esta ocupada en las fechas solicitadas.');
+                }
+
+                $reserva->usuario_id    = $validatedData['usuario_id'];
+                $reserva->fecha_entrada = $validatedData['fecha_entrada'];
+                $reserva->fecha_salida  = $validatedData['fecha_salida'];
+                $reserva->estado        = $validatedData['estado'];
+                $reserva->save();
+
+                if ($detalle) {
+                    $detalle->update([
+                        'habitacion_id' => $habitacion->id,
+                        'noches'        => $noches,
+                        'precio_noche'  => $habitacion->precio_por_noche,
+                        'subtotal'      => $noches * (float) $habitacion->precio_por_noche,
+                    ]);
+                } else {
+                    DetalleReserva::create([
+                        'reserva_id'    => $reserva->id,
+                        'habitacion_id' => $habitacion->id,
+                        'noches'        => $noches,
+                        'precio_noche'  => $habitacion->precio_por_noche,
+                        'subtotal'      => $noches * (float) $habitacion->precio_por_noche,
+                        'activo'        => true,
+                    ]);
+                }
+
+                ReservaServicio::where('reserva_id', $reserva->id)->delete();
+                $this->guardarServicios($reserva, $validatedData['servicios'] ?? []);
+
+                return redirect()->route('reservas.index')->with('success', 'Registro actualizado exitosamente.');
+            });
         } catch (Exception $ex) {
-            return redirect()->back()->withInput()->with('error', 'Error grave al actualizar el registro.');
+            return redirect()->back()->withInput()->with('error', 'Error al actualizar el registro: ' . $ex->getMessage());
         }
     }
 
     public function destroy(string $id)
     {
         try {
-            $reserva = Reserva::with('factura.pagos')->find($id);
+            $reserva = Reserva::find($id);
+
             if ($reserva == null) {
                 return redirect()->route('reservas.index')->with('error', 'Registro no encontrado.');
             }
-            DB::transaction(function () use ($reserva) {
-                $reserva->detalleReservas()->delete();
-                $reserva->servicios()->detach();
-                if ($reserva->factura) {
-                    $reserva->factura->pagos()->delete();
-                    $reserva->factura()->delete();
-                }
-                $reserva->delete();
-            });
-            return redirect()->route('reservas.index')->with('success', 'Registro eliminado exitosamente.');
+
+            if ($reserva->estado !== 'cancelada') {
+                return redirect()->back()->with('error', 'Solo se pueden eliminar reservas canceladas.');
+            }
+
+            $reserva->activo = false;
+
+            return $reserva->save()
+                ? redirect()->route('reservas.index')->with('success', 'Reserva desactivada exitosamente.')
+                : redirect()->back()->with('error', 'Error al desactivar la reserva.');
         } catch (Exception $ex) {
-            return redirect()->back()->with('error', 'Error grave al eliminar el registro.');
+            return redirect()->back()->with('error', 'Error al desactivar la reserva.');
         }
     }
 
@@ -162,18 +232,25 @@ class ReservaController extends Controller
     {
         try {
             $reserva = Reserva::with('detalleReservas.habitacion')->find($id);
+
             if ($reserva == null || $reserva->estado !== 'pendiente') {
                 return redirect()->back()->with('error', 'Solo se pueden confirmar reservas pendientes.');
             }
+
+            if ($reserva->detalleReservas->isEmpty()) {
+                return redirect()->back()->with('error', 'La reserva debe tener al menos una habitacion.');
+            }
+
             DB::transaction(function () use ($reserva) {
                 $reserva->update(['estado' => 'confirmada']);
                 foreach ($reserva->detalleReservas as $detalle) {
                     $detalle->habitacion->update(['estado' => 'ocupada']);
                 }
             });
+
             return redirect()->route('reservas.index')->with('success', 'Reserva confirmada exitosamente.');
         } catch (Exception $ex) {
-            return redirect()->back()->with('error', 'Error grave al confirmar la reserva.');
+            return redirect()->back()->with('error', 'Error al confirmar la reserva.');
         }
     }
 
@@ -181,31 +258,78 @@ class ReservaController extends Controller
     {
         try {
             $reserva = Reserva::with('detalleReservas.habitacion')->find($id);
-            if ($reserva == null || $reserva->estado === 'completada') {
+
+            if ($reserva == null) {
+                return redirect()->back()->with('error', 'Registro no encontrado.');
+            }
+
+            if ($reserva->estado === 'completada') {
                 return redirect()->back()->with('error', 'No se puede cancelar una reserva completada.');
             }
+
+            if ($reserva->estado === 'cancelada') {
+                return redirect()->back()->with('error', 'La reserva ya esta cancelada.');
+            }
+
             DB::transaction(function () use ($reserva) {
                 $estabaConfirmada = $reserva->estado === 'confirmada';
                 $reserva->update(['estado' => 'cancelada']);
+
                 if ($estabaConfirmada) {
                     foreach ($reserva->detalleReservas as $detalle) {
                         $detalle->habitacion->update(['estado' => 'disponible']);
                     }
                 }
             });
+
             return redirect()->route('reservas.index')->with('success', 'Reserva cancelada exitosamente.');
         } catch (Exception $ex) {
-            return redirect()->back()->with('error', 'Error grave al cancelar la reserva.');
+            return redirect()->back()->with('error', 'Error al cancelar la reserva.');
         }
     }
 
-    private function habitacionOcupada(int $habitacionId, string $fechaEntrada, string $fechaSalida): bool
+    private function calcularNoches(string $fechaEntrada, string $fechaSalida): int
     {
-        return DetalleReserva::where('habitacion_id', $habitacionId)
-            ->whereHas('reserva', function ($query) use ($fechaEntrada, $fechaSalida) {
-                $query->where('estado', 'confirmada')
+        return (int) Carbon::parse($fechaEntrada)->startOfDay()
+            ->diffInDays(Carbon::parse($fechaSalida)->startOfDay());
+    }
+
+    private function guardarServicios(Reserva $reserva, array $servicios): void
+    {
+        foreach ($servicios as $servicioData) {
+            $servicio = Servicio::findOrFail($servicioData['servicio_id']);
+
+            if (!$servicio->activo) {
+                continue;
+            }
+
+            $cantidad = (int) $servicioData['cantidad'];
+
+            ReservaServicio::create([
+                'reserva_id'      => $reserva->id,
+                'servicio_id'     => $servicio->id,
+                'cantidad'        => $cantidad,
+                'precio_unitario' => $servicio->precio,
+                'subtotal'        => $cantidad * (float) $servicio->precio,
+                'activo'          => true,
+            ]);
+        }
+    }
+
+    private function habitacionOcupada(int $habitacionId, string $fechaEntrada, string $fechaSalida, ?int $exceptReservaId = null): bool
+    {
+        $query = DetalleReserva::where('habitacion_id', $habitacionId)
+            ->whereHas('reserva', function ($q) use ($fechaEntrada, $fechaSalida, $exceptReservaId) {
+                $q->where('estado', 'confirmada')
+                    ->where('activo', true)
                     ->where('fecha_entrada', '<', $fechaSalida)
                     ->where('fecha_salida', '>', $fechaEntrada);
-            })->exists();
+
+                if ($exceptReservaId) {
+                    $q->where('id', '!=', $exceptReservaId);
+                }
+            });
+
+        return $query->exists();
     }
 }

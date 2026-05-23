@@ -23,9 +23,11 @@ class FacturaController extends Controller
     {
         $reservas = Reserva::with(['usuario', 'detalleReservas', 'servicios'])
             ->where('estado', 'confirmada')
+            ->where('activo', true)
             ->doesntHave('factura')
             ->orderBy('id', 'desc')
             ->get();
+
         return view('facturas.create', compact('reservas'));
     }
 
@@ -49,70 +51,18 @@ class FacturaController extends Controller
 
                 $factura = new Factura();
                 $factura->reserva_id     = $reserva->id;
-                $factura->numero_factura = 'FAC-' . date('Y') . '-' . str_pad((string)(Factura::count() + 1), 6, '0', STR_PAD_LEFT);
+                $factura->numero_factura = 'FAC-' . date('Y') . '-' . str_pad((string) (Factura::count() + 1), 6, '0', STR_PAD_LEFT);
                 $factura->subtotal       = $subtotal;
                 $factura->impuestos      = $impuestos;
                 $factura->total          = $total;
                 $factura->fecha_emision  = now();
-                $factura->activo         = true;
 
                 return $factura->save()
-                    ? redirect()->route('facturas.index')->with('success', 'Factura generada. IVA 13% aplicado automáticamente.')
+                    ? redirect()->route('facturas.index')->with('success', 'Factura generada. IVA 13% aplicado automaticamente.')
                     : redirect()->back()->withInput()->with('error', 'Error al generar la factura.');
             });
         } catch (Exception $ex) {
             return redirect()->back()->withInput()->with('error', 'Error al generar la factura: ' . $ex->getMessage());
-        }
-    }
-
-    public function edit(string $id)
-    {
-        try {
-            $factura = Factura::with(['reserva.usuario', 'pagos'])->find($id);
-            if ($factura === null) {
-                return redirect()->route('facturas.index')->with('error', 'Registro no encontrado.');
-            }
-            return view('facturas.edit', compact('factura'));
-        } catch (Exception $ex) {
-            return redirect()->back()->with('error', 'Error grave al buscar el registro.');
-        }
-    }
-
-    public function update(Request $request, string $id)
-    {
-        try {
-            $factura = Factura::find($id);
-            if ($factura === null) {
-                return redirect()->route('facturas.index')->with('error', 'Registro no encontrado.');
-            }
-            $request->validate(['activo' => 'nullable|boolean']);
-            if (!$request->boolean('activo') && $factura->pagos()->where('estado_pago', 'completado')->exists()) {
-                return redirect()->back()->with('error', 'No se puede desactivar una factura con pagos completados.');
-            }
-            $factura->activo = $request->boolean('activo');
-            return $factura->save()
-                ? redirect()->route('facturas.index')->with('success', 'Registro actualizado exitosamente.')
-                : redirect()->back()->withInput()->with('error', 'Error al actualizar el registro.');
-        } catch (Exception $ex) {
-            return redirect()->back()->withInput()->with('error', 'Error grave al actualizar el registro.');
-        }
-    }
-
-    public function destroy(string $id)
-    {
-        try {
-            $factura = Factura::find($id);
-            if ($factura === null) {
-                return redirect()->route('facturas.index')->with('error', 'Registro no encontrado.');
-            }
-            if ($factura->pagos()->exists()) {
-                return redirect()->back()->with('error', 'No se puede eliminar una factura con pagos registrados.');
-            }
-            return $factura->delete()
-                ? redirect()->route('facturas.index')->with('success', 'Registro eliminado exitosamente.')
-                : redirect()->back()->with('error', 'Error al eliminar el registro.');
-        } catch (Exception $ex) {
-            return redirect()->back()->with('error', 'Error grave al eliminar el registro.');
         }
     }
 }
