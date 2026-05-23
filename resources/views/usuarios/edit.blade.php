@@ -9,7 +9,9 @@
     @method('PUT')
     <p>Nombre: <input type="text" name="nombre" value="{{ old('nombre', $usuario->nombre) }}" required></p>
     <p>Correo: <input type="email" name="correo" value="{{ old('correo', $usuario->correo) }}" required></p>
-    <p>Password: <input type="password" name="password"></p>
+    <p>Password: <input type="password" name="password">
+        <small>(dejar vacio para no cambiar; min. 8 caracteres, letras y numeros)</small>
+    </p>
     <p>Rol:
         <select name="rol" required>
             <option value="admin" @selected($usuario->rol === 'admin')>Admin</option>

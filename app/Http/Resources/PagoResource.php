@@ -15,7 +15,6 @@ class PagoResource extends JsonResource
             'monto' => (float) $this->monto,
             'metodo_pago' => $this->metodo_pago,
             'estado_pago' => $this->estado_pago,
-            'activo' => $this->activo,
             'creado_en' => $this->creado_en,
             'factura' => $this->when($this->relationLoaded('factura'), function () {
                 return new FacturaResource($this->factura);

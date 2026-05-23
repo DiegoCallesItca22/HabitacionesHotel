@@ -19,7 +19,6 @@ class Pago extends Model
         'monto',
         'metodo_pago',
         'estado_pago',
-        'activo',
         'creado_en'
     ];
 
@@ -27,7 +26,6 @@ class Pago extends Model
         'monto' => 'decimal:2',
         'metodo_pago' => 'string',
         'estado_pago' => 'string',
-        'activo' => 'boolean',
         'creado_en' => 'datetime',
     ];
 
@@ -38,7 +36,7 @@ class Pago extends Model
 
     public function scopeActivos($query)
     {
-        return $query->where('activo', true);
+        return $query;
     }
 
     public function scopeCompletados($query)

@@ -8,7 +8,9 @@
     @csrf
     <p>Nombre: <input type="text" name="nombre" value="{{ old('nombre') }}" required></p>
     <p>Correo: <input type="email" name="correo" value="{{ old('correo') }}" required></p>
-    <p>Password: <input type="password" name="password" required></p>
+    <p>Password: <input type="password" name="password" required>
+        <small>(min. 8 caracteres, letras y numeros, ej: abc123)</small>
+    </p>
     <p>Rol:
         <select name="rol" required>
             <option value="admin">Admin</option>

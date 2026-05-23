@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Reserva;
+use App\Models\Servicio;
 use App\Models\Habitacion;
 use App\Models\DetalleReserva;
 use App\Models\ReservaServicio;
@@ -12,9 +13,6 @@ use Illuminate\Support\Facades\DB;
 
 class ReservaService
 {
-    /**
-     * Get reservations with filters and relationships
-     */
     public function getReservas(array $filters = []): LengthAwarePaginator
     {
         $query = Reserva::query();
@@ -48,7 +46,6 @@ class ReservaService
             });
         }
 
-        // Load relationships based on filters
         $with = [];
         if (isset($filters['with_usuario'])) $with[] = 'usuario';
         if (isset($filters['with_detalle_reservas'])) $with[] = 'detalleReservas.habitacion';
@@ -63,9 +60,6 @@ class ReservaService
         return $query->orderBy('created_at', 'desc')->paginate(10);
     }
 
-    /**
-     * Create a new reservation with rooms and services
-     */
     public function createReserva(array $data): Reserva
     {
         return DB::transaction(function () use ($data) {
@@ -204,10 +198,10 @@ class ReservaService
         }
 
         return DB::transaction(function () use ($reserva) {
+            $estabaConfirmada = $reserva->estado === 'confirmada';
             $reserva->update(['estado' => 'cancelada']);
 
-            // Free rooms if was confirmed
-            if ($reserva->estado === 'confirmada') {
+            if ($estabaConfirmada) {
                 foreach ($reserva->detalleReservas as $detalle) {
                     $detalle->habitacion->update(['estado' => 'disponible']);
                 }
@@ -292,7 +286,6 @@ class ReservaService
                 'impuestos' => $impuestos,
                 'total' => $total,
                 'fecha_emision' => now(),
-                'activo' => true
             ]);
 
             return $factura;

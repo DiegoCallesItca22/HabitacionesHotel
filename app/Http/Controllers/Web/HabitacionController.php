@@ -12,7 +12,7 @@ class HabitacionController extends Controller
 {
     public function index()
     {
-        $habitaciones = Habitacion::orderBy('numero')->get();
+        $habitaciones = Habitacion::where('activo', true)->orderBy('numero')->get();
         return view('habitaciones.index', compact('habitaciones'));
     }
 
@@ -21,17 +21,33 @@ class HabitacionController extends Controller
         return view('habitaciones.create');
     }
 
+    public function verificarNumero(Request $request)
+    {
+        $request->validate([
+            'numero' => 'required|string|max:10',
+            'except_id' => 'nullable|integer',
+        ]);
+
+        $query = Habitacion::where('numero', $request->numero)->where('activo', true);
+
+        if ($request->filled('except_id')) {
+            $query->where('id', '!=', $request->except_id);
+        }
+
+        return response()->json(['existe' => $query->exists()]);
+    }
+
     public function store(Request $request)
     {
-        try {
-            $validatedData = $request->validate([
-                'numero' => 'required|string|max:10|unique:habitaciones,numero',
-                'tipo' => ['required', Rule::in(['individual', 'doble', 'suite', 'familiar'])],
-                'precio_por_noche' => 'required|numeric|min:0',
-                'estado' => ['required', Rule::in(['disponible', 'ocupada', 'mantenimiento'])],
-                'activo' => 'nullable|boolean',
-            ]);
+        $validatedData = $request->validate([
+            'numero' => 'required|string|max:10|unique:habitaciones,numero',
+            'tipo' => ['required', Rule::in(['individual', 'doble', 'suite', 'familiar'])],
+            'precio_por_noche' => 'required|numeric|min:0',
+            'estado' => ['required', Rule::in(['disponible', 'ocupada', 'mantenimiento'])],
+            'activo' => 'nullable|boolean',
+        ]);
 
+        try {
             $data = new Habitacion();
             $data->numero = $validatedData['numero'];
             $data->tipo = $validatedData['tipo'];
@@ -43,7 +59,7 @@ class HabitacionController extends Controller
                 ? redirect()->route('habitaciones.index')->with('success', 'Registro creado exitosamente.')
                 : redirect()->back()->withInput()->with('error', 'Error al crear el registro.');
         } catch (Exception $ex) {
-            return redirect()->back()->withInput()->with('error', 'Error grave al crear el registro.');
+            return redirect()->back()->withInput()->with('error', 'Error al crear el registro: ' . $ex->getMessage());
         }
     }
 
@@ -58,27 +74,27 @@ class HabitacionController extends Controller
 
             return view('habitaciones.edit', compact('habitacion'));
         } catch (Exception $ex) {
-            return redirect()->back()->with('error', 'Error grave al buscar el registro.');
+            return redirect()->back()->with('error', 'Error al buscar el registro.');
         }
     }
 
     public function update(Request $request, string $id)
     {
+        $habitacion = Habitacion::find($id);
+
+        if ($habitacion == null) {
+            return redirect()->route('habitaciones.index')->with('error', 'Registro no encontrado.');
+        }
+
+        $validatedData = $request->validate([
+            'numero' => ['required', 'string', 'max:10', Rule::unique('habitaciones', 'numero')->ignore($habitacion->id)],
+            'tipo' => ['required', Rule::in(['individual', 'doble', 'suite', 'familiar'])],
+            'precio_por_noche' => 'required|numeric|min:0',
+            'estado' => ['required', Rule::in(['disponible', 'ocupada', 'mantenimiento'])],
+            'activo' => 'nullable|boolean',
+        ]);
+
         try {
-            $habitacion = Habitacion::find($id);
-
-            if ($habitacion == null) {
-                return redirect()->route('habitaciones.index')->with('error', 'Registro no encontrado.');
-            }
-
-            $validatedData = $request->validate([
-                'numero' => ['required', 'string', 'max:10', Rule::unique('habitaciones', 'numero')->ignore($habitacion->id)],
-                'tipo' => ['required', Rule::in(['individual', 'doble', 'suite', 'familiar'])],
-                'precio_por_noche' => 'required|numeric|min:0',
-                'estado' => ['required', Rule::in(['disponible', 'ocupada', 'mantenimiento'])],
-                'activo' => 'nullable|boolean',
-            ]);
-
             $habitacion->numero = $validatedData['numero'];
             $habitacion->tipo = $validatedData['tipo'];
             $habitacion->precio_por_noche = $validatedData['precio_por_noche'];
@@ -89,7 +105,7 @@ class HabitacionController extends Controller
                 ? redirect()->route('habitaciones.index')->with('success', 'Registro actualizado exitosamente.')
                 : redirect()->back()->withInput()->with('error', 'Error al actualizar el registro.');
         } catch (Exception $ex) {
-            return redirect()->back()->withInput()->with('error', 'Error grave al actualizar el registro.');
+            return redirect()->back()->withInput()->with('error', 'Error al actualizar el registro: ' . $ex->getMessage());
         }
     }
 
@@ -106,11 +122,13 @@ class HabitacionController extends Controller
                 return redirect()->back()->with('error', 'No se puede eliminar una habitacion con reservas confirmadas.');
             }
 
-            return $habitacion->delete()
-                ? redirect()->route('habitaciones.index')->with('success', 'Registro eliminado exitosamente.')
-                : redirect()->back()->with('error', 'Error al eliminar el registro.');
+            $habitacion->activo = false;
+
+            return $habitacion->save()
+                ? redirect()->route('habitaciones.index')->with('success', 'Registro desactivado exitosamente.')
+                : redirect()->back()->with('error', 'Error al desactivar el registro.');
         } catch (Exception $ex) {
-            return redirect()->back()->with('error', 'Error grave al eliminar el registro.');
+            return redirect()->back()->with('error', 'Error al desactivar el registro.');
         }
     }
 }

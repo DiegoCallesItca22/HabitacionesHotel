@@ -26,6 +26,7 @@ Route::middleware('auth')->group(function () {
 
     // Admin + Recepcionista
     Route::middleware('rol:admin,recepcionista')->group(function () {
+        Route::get('/habitaciones/verificar-numero', [HabitacionController::class, 'verificarNumero'])->name('habitaciones.verificar-numero');
         Route::get('/habitaciones',               [HabitacionController::class, 'index'])->name('habitaciones.index');
         Route::get('/habitaciones/create',        [HabitacionController::class, 'create'])->name('habitaciones.create');
         Route::post('/habitaciones/store',        [HabitacionController::class, 'store'])->name('habitaciones.store');
@@ -67,9 +68,6 @@ Route::middleware('auth')->group(function () {
         Route::get('/facturas',                   [FacturaController::class, 'index'])->name('facturas.index');
         Route::get('/facturas/create',            [FacturaController::class, 'create'])->name('facturas.create');
         Route::post('/facturas/store',            [FacturaController::class, 'store'])->name('facturas.store');
-        Route::get('/facturas/edit/{id}',         [FacturaController::class, 'edit'])->name('facturas.edit');
-        Route::put('/facturas/update/{id}',       [FacturaController::class, 'update'])->name('facturas.update');
-        Route::delete('/facturas/destroy/{id}',   [FacturaController::class, 'destroy'])->name('facturas.destroy');
 
         Route::get('/pagos',                      [PagoController::class, 'index'])->name('pagos.index');
         Route::get('/pagos/create',               [PagoController::class, 'create'])->name('pagos.create');

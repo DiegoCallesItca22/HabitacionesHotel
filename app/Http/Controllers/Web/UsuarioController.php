@@ -11,9 +11,16 @@ use Illuminate\Validation\Rule;
 
 class UsuarioController extends Controller
 {
+    private const PASSWORD_RULES = [
+        'required',
+        'string',
+        'min:8',
+        'regex:/^(?=.*[A-Za-z])(?=.*\d).+$/',
+    ];
+
     public function index()
     {
-        $usuarios = Usuario::orderBy('creado_en', 'desc')->get();
+        $usuarios = Usuario::where('activo', true)->orderBy('creado_en', 'desc')->get();
         return view('usuarios.index', compact('usuarios'));
     }
 
@@ -24,15 +31,18 @@ class UsuarioController extends Controller
 
     public function store(Request $request)
     {
-        try {
-            $validatedData = $request->validate([
-                'nombre' => 'required|string|max:100',
-                'correo' => 'required|email|max:150|unique:usuarios,correo',
-                'password' => 'required|string|min:8',
-                'rol' => ['required', Rule::in(['admin', 'cliente', 'recepcionista'])],
-                'activo' => 'nullable|boolean',
-            ]);
+        $validatedData = $request->validate([
+            'nombre' => 'required|string|max:100',
+            'correo' => 'required|email|max:150|unique:usuarios,correo',
+            'password' => self::PASSWORD_RULES,
+            'rol' => ['required', Rule::in(['admin', 'cliente', 'recepcionista'])],
+            'activo' => 'nullable|boolean',
+        ], [
+            'password.regex' => 'La contraseña debe incluir letras y números (ejemplo: abc123).',
+            'password.min' => 'La contraseña debe tener al menos 8 caracteres.',
+        ]);
 
+        try {
             $data = new Usuario();
             $data->nombre = $validatedData['nombre'];
             $data->correo = $validatedData['correo'];
@@ -44,7 +54,7 @@ class UsuarioController extends Controller
                 ? redirect()->route('usuarios.index')->with('success', 'Registro creado exitosamente.')
                 : redirect()->back()->withInput()->with('error', 'Error al crear el registro.');
         } catch (Exception $ex) {
-            return redirect()->back()->withInput()->with('error', 'Error grave al crear el registro.');
+            return redirect()->back()->withInput()->with('error', 'Error al crear el registro: ' . $ex->getMessage());
         }
     }
 
@@ -59,27 +69,35 @@ class UsuarioController extends Controller
 
             return view('usuarios.edit', compact('usuario'));
         } catch (Exception $ex) {
-            return redirect()->back()->with('error', 'Error grave al buscar el registro.');
+            return redirect()->back()->with('error', 'Error al buscar el registro.');
         }
     }
 
     public function update(Request $request, string $id)
     {
+        $usuario = Usuario::find($id);
+
+        if ($usuario == null) {
+            return redirect()->route('usuarios.index')->with('error', 'Registro no encontrado.');
+        }
+
+        $rules = [
+            'nombre' => 'required|string|max:100',
+            'correo' => ['required', 'email', 'max:150', Rule::unique('usuarios', 'correo')->ignore($usuario->id)],
+            'rol' => ['required', Rule::in(['admin', 'cliente', 'recepcionista'])],
+            'activo' => 'nullable|boolean',
+        ];
+
+        if ($request->filled('password')) {
+            $rules['password'] = array_merge(['nullable'], array_slice(self::PASSWORD_RULES, 1));
+        }
+
+        $validatedData = $request->validate($rules, [
+            'password.regex' => 'La contraseña debe incluir letras y números (ejemplo: abc123).',
+            'password.min' => 'La contraseña debe tener al menos 8 caracteres.',
+        ]);
+
         try {
-            $usuario = Usuario::find($id);
-
-            if ($usuario == null) {
-                return redirect()->route('usuarios.index')->with('error', 'Registro no encontrado.');
-            }
-
-            $validatedData = $request->validate([
-                'nombre' => 'required|string|max:100',
-                'correo' => ['required', 'email', 'max:150', Rule::unique('usuarios', 'correo')->ignore($usuario->id)],
-                'password' => 'nullable|string|min:8',
-                'rol' => ['required', Rule::in(['admin', 'cliente', 'recepcionista'])],
-                'activo' => 'nullable|boolean',
-            ]);
-
             $usuario->nombre = $validatedData['nombre'];
             $usuario->correo = $validatedData['correo'];
             $usuario->rol = $validatedData['rol'];
@@ -93,7 +111,7 @@ class UsuarioController extends Controller
                 ? redirect()->route('usuarios.index')->with('success', 'Registro actualizado exitosamente.')
                 : redirect()->back()->withInput()->with('error', 'Error al actualizar el registro.');
         } catch (Exception $ex) {
-            return redirect()->back()->withInput()->with('error', 'Error grave al actualizar el registro.');
+            return redirect()->back()->withInput()->with('error', 'Error al actualizar el registro: ' . $ex->getMessage());
         }
     }
 
@@ -110,11 +128,13 @@ class UsuarioController extends Controller
                 return redirect()->back()->with('error', 'No se puede eliminar un usuario con reservas confirmadas.');
             }
 
-            return $usuario->delete()
-                ? redirect()->route('usuarios.index')->with('success', 'Registro eliminado exitosamente.')
-                : redirect()->back()->with('error', 'Error al eliminar el registro.');
+            $usuario->activo = false;
+
+            return $usuario->save()
+                ? redirect()->route('usuarios.index')->with('success', 'Registro desactivado exitosamente.')
+                : redirect()->back()->with('error', 'Error al desactivar el registro.');
         } catch (Exception $ex) {
-            return redirect()->back()->with('error', 'Error grave al eliminar el registro.');
+            return redirect()->back()->with('error', 'Error al desactivar el registro.');
         }
     }
 }

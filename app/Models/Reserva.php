@@ -66,19 +66,17 @@ class Reserva extends Model
         return $this->fecha_entrada->diffInDays($this->fecha_salida);
     }
 
-    public function getSubtotalHabitacionesAttribute()
+    public function getSubtotalHabitacionesAttribute(): float
     {
-        return $this->detalleReservas->sum('subtotal');
+        return (float) $this->detalleReservas->sum(fn ($detalle) => (float) $detalle->subtotal);
     }
 
-    public function getSubtotalServiciosAttribute()
+    public function getSubtotalServiciosAttribute(): float
     {
-        return $this->servicios->sum(function ($servicio) {
-            return $servicio->pivot->subtotal;
-        });
+        return (float) $this->servicios->sum(fn ($servicio) => (float) $servicio->pivot->subtotal);
     }
 
-    public function getTotalAttribute()
+    public function getTotalAttribute(): float
     {
         return $this->subtotal_habitaciones + $this->subtotal_servicios;
     }

@@ -11,7 +11,7 @@ class ServicioController extends Controller
 {
     public function index()
     {
-        $servicios = Servicio::orderBy('nombre')->get();
+        $servicios = Servicio::where('activo', true)->orderBy('nombre')->get();
         return view('servicios.index', compact('servicios'));
     }
 
@@ -22,13 +22,13 @@ class ServicioController extends Controller
 
     public function store(Request $request)
     {
-        try {
-            $validatedData = $request->validate([
-                'nombre' => 'required|string|max:100',
-                'precio' => 'required|numeric|min:0',
-                'activo' => 'nullable|boolean',
-            ]);
+        $validatedData = $request->validate([
+            'nombre' => 'required|string|max:100',
+            'precio' => 'required|numeric|min:0',
+            'activo' => 'nullable|boolean',
+        ]);
 
+        try {
             $data = new Servicio();
             $data->nombre = $validatedData['nombre'];
             $data->precio = $validatedData['precio'];
@@ -38,7 +38,7 @@ class ServicioController extends Controller
                 ? redirect()->route('servicios.index')->with('success', 'Registro creado exitosamente.')
                 : redirect()->back()->withInput()->with('error', 'Error al crear el registro.');
         } catch (Exception $ex) {
-            return redirect()->back()->withInput()->with('error', 'Error grave al crear el registro.');
+            return redirect()->back()->withInput()->with('error', 'Error al crear el registro: ' . $ex->getMessage());
         }
     }
 
@@ -53,25 +53,25 @@ class ServicioController extends Controller
 
             return view('servicios.edit', compact('servicio'));
         } catch (Exception $ex) {
-            return redirect()->back()->with('error', 'Error grave al buscar el registro.');
+            return redirect()->back()->with('error', 'Error al buscar el registro.');
         }
     }
 
     public function update(Request $request, string $id)
     {
+        $servicio = Servicio::find($id);
+
+        if ($servicio == null) {
+            return redirect()->route('servicios.index')->with('error', 'Registro no encontrado.');
+        }
+
+        $validatedData = $request->validate([
+            'nombre' => 'required|string|max:100',
+            'precio' => 'required|numeric|min:0',
+            'activo' => 'nullable|boolean',
+        ]);
+
         try {
-            $servicio = Servicio::find($id);
-
-            if ($servicio == null) {
-                return redirect()->route('servicios.index')->with('error', 'Registro no encontrado.');
-            }
-
-            $validatedData = $request->validate([
-                'nombre' => 'required|string|max:100',
-                'precio' => 'required|numeric|min:0',
-                'activo' => 'nullable|boolean',
-            ]);
-
             $servicio->nombre = $validatedData['nombre'];
             $servicio->precio = $validatedData['precio'];
             $servicio->activo = $request->boolean('activo');
@@ -80,7 +80,7 @@ class ServicioController extends Controller
                 ? redirect()->route('servicios.index')->with('success', 'Registro actualizado exitosamente.')
                 : redirect()->back()->withInput()->with('error', 'Error al actualizar el registro.');
         } catch (Exception $ex) {
-            return redirect()->back()->withInput()->with('error', 'Error grave al actualizar el registro.');
+            return redirect()->back()->withInput()->with('error', 'Error al actualizar el registro: ' . $ex->getMessage());
         }
     }
 
@@ -93,15 +93,13 @@ class ServicioController extends Controller
                 return redirect()->route('servicios.index')->with('error', 'Registro no encontrado.');
             }
 
-            if ($servicio->reservaServicios()->exists()) {
-                return redirect()->back()->with('error', 'No se puede eliminar un servicio asociado a reservas.');
-            }
+            $servicio->activo = false;
 
-            return $servicio->delete()
-                ? redirect()->route('servicios.index')->with('success', 'Registro eliminado exitosamente.')
-                : redirect()->back()->with('error', 'Error al eliminar el registro.');
+            return $servicio->save()
+                ? redirect()->route('servicios.index')->with('success', 'Registro desactivado exitosamente.')
+                : redirect()->back()->with('error', 'Error al desactivar el registro.');
         } catch (Exception $ex) {
-            return redirect()->back()->with('error', 'Error grave al eliminar el registro.');
+            return redirect()->back()->with('error', 'Error al desactivar el registro.');
         }
     }
 }

@@ -20,4 +20,3 @@
         @endforeach
     </select>
 </p>
-<p><label><input type="checkbox" name="activo" value="1" @checked(old('activo', $pago->activo ?? true))> Activo</label></p>

@@ -4,7 +4,7 @@
 
 @section('content')
 <h1>Crear reserva</h1>
-<form action="{{ route('reservas.store') }}" method="POST">
+<form action="{{ route('reservas.store') }}" method="POST" id="form-reserva">
     @csrf
     <p>Usuario (cliente):
         <select name="usuario_id" required>
@@ -16,30 +16,55 @@
             @endforeach
         </select>
     </p>
-    <p>Entrada: <input type="date" name="fecha_entrada" value="{{ old('fecha_entrada') }}" required></p>
-    <p>Salida: <input type="date" name="fecha_salida" value="{{ old('fecha_salida') }}" required></p>
+    <p>
+        <span id="fechas-estado" style="display:block; font-weight:bold; margin-bottom:4px;"></span>
+        Entrada: <input type="date" name="fecha_entrada" id="fecha_entrada" value="{{ old('fecha_entrada') }}" required>
+        Salida: <input type="date" name="fecha_salida" id="fecha_salida" value="{{ old('fecha_salida') }}" required>
+        <small>(la reserva se calcula por noches; la salida debe ser posterior a la entrada)</small>
+    </p>
     <p>Habitacion:
         <select name="habitacion_id" required>
-            <option value="">Seleccione una habitación</option>
+            <option value="">Seleccione una habitacion</option>
             @foreach($habitaciones as $habitacion)
-                <option value="{{ $habitacion->id }}" {{ old('habitacion_id') == $habitacion->id ? 'selected' : '' }}>
-                    {{ $habitacion->numero }} - {{ $habitacion->tipo }} - {{ $habitacion->estado }}
+                <option value="{{ $habitacion->id }}" data-precio="{{ $habitacion->precio_por_noche }}" {{ old('habitacion_id') == $habitacion->id ? 'selected' : '' }}>
+                    {{ $habitacion->numero }} - {{ $habitacion->tipo }} — ${{ number_format((float) $habitacion->precio_por_noche, 2) }}/noche
                 </option>
             @endforeach
         </select>
     </p>
-    <p>Servicio opcional:
-        <select name="servicio_id">
-            <option value="">Sin servicio</option>
-            @foreach($servicios as $servicio)
-                <option value="{{ $servicio->id }}" {{ old('servicio_id') == $servicio->id ? 'selected' : '' }}>
-                    {{ $servicio->nombre }}
-                </option>
-            @endforeach
-        </select>
-    </p>
-    <p>Cantidad servicio: <input type="number" name="cantidad" value="{{ old('cantidad', 1) }}" min="0"></p>
+
+    @include('reservas.partials.form-servicios', ['serviciosReserva' => []])
+
     <button type="submit">Guardar</button>
     <a href="{{ route('reservas.index') }}">Cancelar</a>
 </form>
+
+<script>
+(function () {
+    const entrada = document.getElementById('fecha_entrada');
+    const salida = document.getElementById('fecha_salida');
+    const estado = document.getElementById('fechas-estado');
+
+    function validarFechas() {
+        if (!entrada.value || !salida.value) {
+            estado.textContent = '';
+            return;
+        }
+        const e = new Date(entrada.value + 'T00:00:00');
+        const s = new Date(salida.value + 'T00:00:00');
+        const noches = Math.round((s - e) / (1000 * 60 * 60 * 24));
+        if (noches < 1) {
+            estado.textContent = 'Debe haber al menos 1 noche entre entrada y salida.';
+            estado.style.color = 'red';
+        } else {
+            estado.textContent = noches + ' noche(s) de estadia.';
+            estado.style.color = 'green';
+        }
+    }
+
+    entrada.addEventListener('change', validarFechas);
+    salida.addEventListener('change', validarFechas);
+    validarFechas();
+})();
+</script>
 @endsection
